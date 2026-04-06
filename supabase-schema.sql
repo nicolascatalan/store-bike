@@ -16,6 +16,7 @@ create table if not exists public.products (
   category    text not null,
   stock       integer not null default 0,
   image       text not null default '/images/placeholder-tool.jpg',
+  images      text[] default '{}',
   description text not null default '',
   features    text[] default '{}',
   specs       jsonb default '{}',
@@ -213,3 +214,6 @@ CREATE POLICY "Admin gestiona cupones" ON public.coupons FOR ALL USING (auth.rol
 
 -- Insert default coupon
 INSERT INTO public.coupons (code, discount_pct) VALUES ('BIKE2026', 15) ON CONFLICT DO NOTHING;
+
+-- MIGRATION: Ejecutar la siguiente línea para añadir el campo de imágenes múltiples a la tabla de productos si la base de datos ya estaba creada:
+-- ALTER TABLE public.products ADD COLUMN IF NOT EXISTS images text[] default '{}';

@@ -130,6 +130,13 @@ export default function ProductClient({ product }: { product: DBProduct }) {
     accesorios: "Accesorios"
   };
 
+  // Gallery logic
+  const allImages = product.images && product.images.length > 0 
+    ? product.images 
+    : [product.image || "/images/placeholder-tool.jpg"];
+    
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+
   return (
     <div>
       <section className="section" style={{ paddingBottom: "2rem" }}>
@@ -145,14 +152,14 @@ export default function ProductClient({ product }: { product: DBProduct }) {
 
           {/* Product layout */}
           <div className="product-detail__grid">
-            {/* Image panel */}
-            <div className="product-detail__image-panel">
+            {/* Image panel with Gallery */}
+            <div className="product-detail__image-panel" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
               <div className="product-detail__image">
                 <div style={{ position: "relative", width: "100%", height: "100%" }}>
                   <img
-                    src={product.image || "/images/placeholder-tool.jpg"}
+                    src={allImages[activeImageIndex]}
                     alt={product.name}
-                    style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "12px" }}
+                    style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "12px", transition: "opacity 0.2s" }}
                   />
                 </div>
                 {product.stock <= 3 && product.stock > 0 && (
@@ -162,6 +169,31 @@ export default function ProductClient({ product }: { product: DBProduct }) {
                   <div className="product-card__badge" style={{ background: "#555" }}>Agotado</div>
                 )}
               </div>
+              
+              {/* Thumbnails */}
+              {allImages.length > 1 && (
+                <div style={{ display: "flex", gap: "0.5rem", overflowX: "auto", paddingBottom: "0.5rem" }}>
+                  {allImages.map((imgUrl, index) => (
+                    <button 
+                      key={index} 
+                      onClick={() => setActiveImageIndex(index)}
+                      style={{ 
+                        width: "80px", 
+                        height: "80px", 
+                        flexShrink: 0, 
+                        border: activeImageIndex === index ? "2px solid var(--color-primary)" : "1px solid var(--color-border)",
+                        borderRadius: "8px",
+                        overflow: "hidden",
+                        padding: 0,
+                        background: "transparent",
+                        cursor: "pointer"
+                      }}
+                    >
+                      <img src={imgUrl} alt={`${product.name} ${index}`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Info panel */}

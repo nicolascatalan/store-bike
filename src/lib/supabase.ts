@@ -18,6 +18,7 @@ export interface DBProduct {
   category: string;
   stock: number;
   image: string;
+  images?: string[];
   description: string;
   features: string[] | null;
   specs: Record<string, string> | null;
