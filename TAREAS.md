@@ -6,8 +6,8 @@ Ver el checklist completo en TAREAS.md de este repositorio.
 - ✅ Fase 1: Frontend completo
 - ✅ Fase 2: Panel Admin completo  
 - ✅ Fase 3: Git configurado
-- ⬜ Fase 4: Supabase (siguiente)
-- ⬜ Fase 5: Auth Admin
-- ⬜ Fase 6: MercadoPago
+- ✅ Fase 4: Supabase (conectado, tablas creadas, datos reales)
+- ✅ Fase 5: Auth Admin (login + logout + rutas protegidas)
+- ✅ Fase 6: MercadoPago (Integrado con Credenciales de Prueba)
 - ⬜ Fase 7: Deploy Vercel
 - ⬜ Fase 8: Pulido final

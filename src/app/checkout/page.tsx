@@ -1,8 +1,7 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { ArrowLeft, Check, CreditCard, Building2, Truck } from "lucide-react";
+import { ArrowLeft, Check, CreditCard, Building2, Truck, ShoppingBag, ExternalLink } from "lucide-react";
 import { useCart } from "@/lib/cart";
 
 function formatCLP(price: number) {
@@ -13,20 +12,20 @@ function formatCLP(price: number) {
   }).format(price);
 }
 
-type PayMethod = "transferencia" | "tarjeta" | "webpay";
+type PayMethod = "mercadopago" | "transferencia";
 type Step = "info" | "payment" | "confirm";
 
 export default function CheckoutPage() {
   const { items, totalPrice, clearCart } = useCart();
-  const router = useRouter();
   const [step, setStep] = useState<Step>("info");
-  const [payMethod, setPayMethod] = useState<PayMethod>("transferencia");
+  const [payMethod, setPayMethod] = useState<PayMethod>("mercadopago");
   const [form, setForm] = useState({
     name: "", email: "", phone: "",
     address: "", city: "", region: "",
   });
   const [errors, setErrors] = useState<Partial<typeof form>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [mpError, setMpError] = useState<string | null>(null);
 
   const shipping = totalPrice >= 50000 ? 0 : 4990;
   const total = totalPrice + shipping;
@@ -67,8 +66,72 @@ export default function CheckoutPage() {
 
   async function handleOrder() {
     setSubmitting(true);
-    // Simulate processing
-    await new Promise((r) => setTimeout(r, 1500));
+    setMpError(null);
+
+    if (payMethod === "mercadopago") {
+      try {
+        const res = await fetch("/api/create-preference", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            items: items.map((i) => ({
+              id: i.id,
+              name: i.name,
+              price: i.price,
+              quantity: i.quantity,
+            })),
+            customer: {
+              name: form.name,
+              email: form.email,
+              phone: form.phone,
+            },
+            shipping,
+            total,
+          }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || data.error) {
+          setMpError(data.error ?? "No se pudo iniciar el pago. Intenta nuevamente.");
+          setSubmitting(false);
+          return;
+        }
+
+        // Limpiar carrito y redirigir a MercadoPago
+        clearCart();
+        window.location.href = data.initPoint;
+      } catch {
+        setMpError("Error de conexión. Verifica tu internet e intenta nuevamente.");
+        setSubmitting(false);
+      }
+      return;
+    }
+
+    // Transferencia bancaria: guardar pedido y mostrar éxito
+    try {
+      await fetch("/api/create-preference", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: items.map((i) => ({
+            id: i.id,
+            name: i.name,
+            price: i.price,
+            quantity: i.quantity,
+          })),
+          customer: {
+            name: form.name,
+            email: form.email,
+            phone: form.phone,
+          },
+          shipping,
+          total,
+          skipMP: true,
+        }),
+      });
+    } catch { /* ignorar */ }
+
     clearCart();
     setStep("confirm");
     setSubmitting(false);
@@ -83,14 +146,25 @@ export default function CheckoutPage() {
               <Check size={48} />
             </div>
             <h1>¡Pedido recibido!</h1>
-            <p>Gracias <strong>{form.name || "por tu compra"}</strong>. Te enviaremos la confirmación a <strong>{form.email || "tu correo"}</strong>.</p>
+            <p>
+              Gracias <strong>{form.name}</strong>. Recibirás la confirmación en{" "}
+              <strong>{form.email}</strong>.
+            </p>
             <div className="order-success__box">
-              <p style={{ fontWeight: 600, color: "var(--color-text)" }}>Número de pedido</p>
-              <p style={{ fontFamily: "monospace", fontSize: "1.3rem", color: "var(--color-primary)" }}>
-                #{Math.floor(Math.random() * 90000) + 10000}
+              <p style={{ fontWeight: 600, color: "var(--color-text)", marginBottom: "0.5rem" }}>
+                Datos para la transferencia
+              </p>
+              <p>Banco: <strong>BancoEstado</strong></p>
+              <p>Cuenta corriente: <strong>00123456789</strong></p>
+              <p>RUT: <strong>76.123.456-7</strong></p>
+              <p>Monto: <strong>{formatCLP(total)}</strong></p>
+              <p style={{ marginTop: "0.5rem", fontSize: "0.82rem", color: "var(--color-text-subtle)" }}>
+                Envía el comprobante a <strong>pagos@tiendabici.cl</strong> para confirmar.
               </p>
             </div>
-            <Link href="/" className="btn btn-primary btn-lg" id="back-home">Volver al inicio</Link>
+            <Link href="/" className="btn btn-primary btn-lg" id="back-home">
+              Volver al inicio
+            </Link>
           </div>
         </div>
       </div>
@@ -129,7 +203,10 @@ export default function CheckoutPage() {
           {/* Steps indicator */}
           <div className="checkout-steps">
             {(["info", "payment"] as Step[]).map((s, i) => (
-              <div key={s} className={`checkout-step ${step === s || (step === "payment" && i === 0) ? "active" : ""} ${step === "payment" && i === 0 ? "done" : ""}`}>
+              <div
+                key={s}
+                className={`checkout-step ${step === s || (step === "payment" && i === 0) ? "active" : ""} ${step === "payment" && i === 0 ? "done" : ""}`}
+              >
                 <span className="checkout-step__num">{i + 1}</span>
                 <span>{s === "info" ? "Datos personales" : "Forma de pago"}</span>
               </div>
@@ -173,30 +250,70 @@ export default function CheckoutPage() {
                 </h2>
 
                 <div className="pay-methods">
-                  {([
-                    { value: "transferencia", label: "Transferencia bancaria", icon: <Building2 size={20} /> },
-                    { value: "tarjeta", label: "Tarjeta de crédito/débito", icon: <CreditCard size={20} /> },
-                    { value: "webpay", label: "WebPay Plus", icon: <span style={{ fontWeight: 700, fontSize: "0.8rem" }}>WP</span> },
-                  ] as { value: PayMethod; label: string; icon: React.ReactNode }[]).map((m) => (
-                    <label
-                      key={m.value}
-                      id={`pay-method-${m.value}`}
-                      className={`pay-method ${payMethod === m.value ? "active" : ""}`}
-                    >
-                      <input
-                        type="radio"
-                        name="payment"
-                        value={m.value}
-                        checked={payMethod === m.value}
-                        onChange={() => setPayMethod(m.value)}
-                        style={{ display: "none" }}
-                      />
-                      <span style={{ color: "var(--color-primary)" }}>{m.icon}</span>
-                      <span>{m.label}</span>
-                      {payMethod === m.value && <Check size={16} style={{ marginLeft: "auto", color: "var(--color-primary)" }} />}
-                    </label>
-                  ))}
+                  {/* MercadoPago */}
+                  <label
+                    id="pay-method-mercadopago"
+                    className={`pay-method ${payMethod === "mercadopago" ? "active" : ""}`}
+                  >
+                    <input
+                      type="radio"
+                      name="payment"
+                      value="mercadopago"
+                      checked={payMethod === "mercadopago"}
+                      onChange={() => setPayMethod("mercadopago")}
+                      style={{ display: "none" }}
+                    />
+                    <span style={{ color: "var(--color-primary)", fontWeight: 700, fontSize: "0.9rem" }}>
+                      MP
+                    </span>
+                    <div>
+                      <span style={{ fontWeight: 600 }}>MercadoPago</span>
+                      <p style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", marginTop: "2px" }}>
+                        Tarjeta, débito, cuotas sin interés, efectivo
+                      </p>
+                    </div>
+                    {payMethod === "mercadopago" && <Check size={16} style={{ marginLeft: "auto", color: "var(--color-primary)" }} />}
+                  </label>
+
+                  {/* Transferencia */}
+                  <label
+                    id="pay-method-transferencia"
+                    className={`pay-method ${payMethod === "transferencia" ? "active" : ""}`}
+                  >
+                    <input
+                      type="radio"
+                      name="payment"
+                      value="transferencia"
+                      checked={payMethod === "transferencia"}
+                      onChange={() => setPayMethod("transferencia")}
+                      style={{ display: "none" }}
+                    />
+                    <span style={{ color: "var(--color-primary)" }}>
+                      <Building2 size={20} />
+                    </span>
+                    <div>
+                      <span style={{ fontWeight: 600 }}>Transferencia bancaria</span>
+                      <p style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", marginTop: "2px" }}>
+                        Confirma tu pedido enviando el comprobante
+                      </p>
+                    </div>
+                    {payMethod === "transferencia" && <Check size={16} style={{ marginLeft: "auto", color: "var(--color-primary)" }} />}
+                  </label>
                 </div>
+
+                {/* Info según método */}
+                {payMethod === "mercadopago" && (
+                  <div className="pay-info-box" style={{ marginTop: "1.25rem" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "0.5rem" }}>
+                      <ShoppingBag size={16} style={{ color: "var(--color-primary)" }} />
+                      <p style={{ fontWeight: 600, color: "var(--color-text)" }}>Pago seguro con MercadoPago</p>
+                    </div>
+                    <p style={{ fontSize: "0.82rem", color: "var(--color-text-subtle)" }}>
+                      Serás redirigido al sitio de MercadoPago para completar el pago.
+                      Acepta tarjetas Visa, Mastercard, débito Redcompra y cuotas sin interés.
+                    </p>
+                  </div>
+                )}
 
                 {payMethod === "transferencia" && (
                   <div className="pay-info-box" style={{ marginTop: "1.25rem" }}>
@@ -211,6 +328,20 @@ export default function CheckoutPage() {
                   </div>
                 )}
 
+                {mpError && (
+                  <div style={{
+                    marginTop: "1rem",
+                    padding: "0.85rem 1rem",
+                    background: "rgba(239,68,68,0.1)",
+                    border: "1px solid rgba(239,68,68,0.25)",
+                    borderRadius: "var(--radius-md)",
+                    color: "var(--color-danger)",
+                    fontSize: "0.88rem",
+                  }}>
+                    {mpError}
+                  </div>
+                )}
+
                 <div style={{ display: "flex", gap: "1rem", marginTop: "1.5rem" }}>
                   <button className="btn btn-secondary" onClick={() => setStep("info")} id="back-to-info">
                     ← Atrás
@@ -218,11 +349,16 @@ export default function CheckoutPage() {
                   <button
                     id="confirm-order"
                     className={`btn btn-primary btn-lg ${submitting ? "btn-loading" : ""}`}
-                    style={{ flex: 1 }}
+                    style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem" }}
                     onClick={handleNextStep}
                     disabled={submitting}
                   >
-                    {submitting ? "Procesando…" : "Confirmar pedido ✓"}
+                    {submitting
+                      ? "Procesando…"
+                      : payMethod === "mercadopago"
+                      ? (<><ExternalLink size={18} /> Pagar con MercadoPago</>)
+                      : "Confirmar pedido ✓"
+                    }
                   </button>
                 </div>
               </div>
@@ -255,6 +391,10 @@ export default function CheckoutPage() {
             <div className="cart__summary-row cart__summary-total">
               <span>Total</span>
               <span>{formatCLP(total)}</span>
+            </div>
+
+            <div style={{ marginTop: "1.25rem", padding: "0.75rem", background: "var(--color-surface-2)", borderRadius: "var(--radius-md)", fontSize: "0.78rem", color: "var(--color-text-muted)", textAlign: "center" }}>
+              🔒 Pago 100% seguro · Encriptado SSL
             </div>
           </div>
         </div>
