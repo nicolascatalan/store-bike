@@ -2,6 +2,7 @@
 
 import { supabase } from "./supabase";
 import type { DBProduct, DBOrder, DBReview } from "./supabase";
+import { revalidatePath } from "next/cache";
 
 // ── Products ────────────────────────────────────
 
@@ -214,4 +215,25 @@ export async function validateCoupon(code: string): Promise<number> {
 
   if (error || !data) return 0;
   return data.discount_pct;
+}
+
+export async function createCoupon(formData: FormData) {
+  const code = formData.get("code")?.toString().toUpperCase();
+  const pct = parseInt(formData.get("discount_pct")?.toString() || "0");
+  const active = formData.get("active") === "on";
+
+  if (!code || isNaN(pct) || pct <= 0 || pct > 100) return;
+
+  const { error } = await supabase.from("coupons").insert({
+    code,
+    discount_pct: pct,
+    active
+  });
+
+  if (error) {
+    console.error("Error creating coupon:", error);
+    return;
+  }
+
+  revalidatePath("/admin/coupons");
 }

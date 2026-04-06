@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase-server";
+import { createCoupon } from "@/lib/actions";
 
 export default async function AdminCouponsPage() {
   const supabase = await createClient();
@@ -8,6 +9,25 @@ export default async function AdminCouponsPage() {
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem" }}>
         <h1 style={{ fontSize: "1.75rem", margin: 0 }}>Gestión de Cupones</h1>
+      </div>
+
+      <div className="admin-card" style={{ marginBottom: "2rem" }}>
+        <h2 style={{ fontSize: "1.1rem", marginBottom: "1rem" }}>Crear Nuevo Cupón</h2>
+        <form action={createCoupon} style={{ display: "flex", gap: "1rem", alignItems: "flex-end", flexWrap: "wrap" }}>
+          <div>
+            <label className="form-label">Código (ej. VERANO24)</label>
+            <input type="text" name="code" className="input" placeholder="INGRESA_CODIGO" required style={{ width: "200px" }} />
+          </div>
+          <div>
+            <label className="form-label">Descuento (%)</label>
+            <input type="number" name="discount_pct" className="input" min="1" max="100" placeholder="15" required style={{ width: "120px" }} />
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", paddingBottom: "0.5rem" }}>
+            <input type="checkbox" name="active" defaultChecked id="active-cb" />
+            <label htmlFor="active-cb" style={{ fontSize: "0.9rem" }}>Activo</label>
+          </div>
+          <button type="submit" className="btn btn-primary" style={{ padding: "0.5rem 1.5rem", height: "42px" }}>Crear Cupón</button>
+        </form>
       </div>
 
       <div className="admin-card">
