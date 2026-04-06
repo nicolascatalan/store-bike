@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LayoutDashboard, PackageSearch, Boxes, ShoppingBag, Store } from "lucide-react";
+import { LayoutDashboard, PackageSearch, Boxes, ShoppingBag, Store, Ticket, MessageSquare } from "lucide-react";
 import { createClient } from "@/lib/supabase-server";
 import AdminLogoutButton from "./AdminLogoutButton";
 
@@ -31,6 +31,14 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <Link href="/admin/inventory" className="admin-nav__link">
             <Boxes size={20} />
             <span>Inventario</span>
+          </Link>
+          <Link href="/admin/coupons" className="admin-nav__link">
+            <Ticket size={20} />
+            <span>Cupones</span>
+          </Link>
+          <Link href="/admin/reviews" className="admin-nav__link">
+            <MessageSquare size={20} />
+            <span>Reseñas</span>
           </Link>
         </nav>
 
