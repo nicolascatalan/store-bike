@@ -2,7 +2,8 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import ProductCard from "./ProductCard";
-import { PRODUCTS } from "@/lib/products";
+import type { Product } from "@/lib/products";
+import type { DBProduct } from "@/lib/supabase";
 
 const CATEGORIES = [
   { value: "all", label: "Todos" },
@@ -12,7 +13,7 @@ const CATEGORIES = [
   { value: "ropa", label: "Ropa" },
 ];
 
-export default function ProductCatalog() {
+export default function ProductCatalog({ products }: { products: (Product | DBProduct)[] }) {
   const searchParams = useSearchParams();
   const [activeCategory, setActiveCategory] = useState("all");
 
@@ -24,8 +25,8 @@ export default function ProductCatalog() {
 
   const filtered =
     activeCategory === "all"
-      ? PRODUCTS
-      : PRODUCTS.filter((p) => p.category === activeCategory);
+      ? products
+      : products.filter((p) => p.category === activeCategory);
 
   return (
     <div id="catalog">
@@ -54,7 +55,7 @@ export default function ProductCatalog() {
       {/* Grid */}
       <div className="products-grid">
         {filtered.map((product, i) => (
-          <ProductCard key={product.id} product={product} index={i} />
+          <ProductCard key={product.id} product={product as any} index={i} />
         ))}
       </div>
     </div>
