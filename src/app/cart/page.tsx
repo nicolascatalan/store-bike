@@ -52,15 +52,12 @@ export default function CartPage() {
               <div key={item.id} className="cart__item" id={`cart-item-${item.id}`}>
                 {/* Product image */}
                 <div className="cart__item-image">
-                  <div style={{
-                    width: "100%", height: "100%",
-                    background: "linear-gradient(135deg, #1e1e1e, #2a2a2a)",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                  }}>
-                    <svg width="36" height="36" viewBox="0 0 64 64" fill="none">
-                      <circle cx="32" cy="32" r="24" stroke="#c45200" strokeWidth="2" opacity="0.4" />
-                      <circle cx="32" cy="32" r="8" fill="#c45200" opacity="0.3" />
-                    </svg>
+                  <div style={{ position: "relative", width: "100%", height: "100%" }}>
+                    <img
+                      src={item.image}
+                      alt={item.name}
+                      style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "8px" }}
+                    />
                   </div>
                 </div>
 

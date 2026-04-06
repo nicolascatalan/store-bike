@@ -48,21 +48,12 @@ export default function ProductCard({ product, index }: { product: Product; inde
     >
       {/* Image */}
       <div className="product-card__image">
-        <div
-          style={{
-            width: "100%",
-            height: "100%",
-            background: `linear-gradient(135deg, #1e1e1e 0%, #2a2a2a 50%, #1a1a1a 100%)`,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
-            <circle cx="32" cy="32" r="24" stroke="#c45200" strokeWidth="2" opacity="0.4" />
-            <circle cx="32" cy="32" r="8" fill="#c45200" opacity="0.3" />
-            <path d="M32 14V18M32 46V50M14 32H18M46 32H50" stroke="#c45200" strokeWidth="2" strokeLinecap="round" opacity="0.4" />
-          </svg>
+        <div style={{ position: "relative", width: "100%", height: "100%" }}>
+          <img
+            src={product.image}
+            alt={product.name}
+            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          />
         </div>
         {product.stock === 0 && (
           <div className="product-card__badge" style={{ background: "#555" }}>Agotado</div>
