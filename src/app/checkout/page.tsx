@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ArrowLeft, Check, CreditCard, Building2, Truck, ShoppingBag, ExternalLink } from "lucide-react";
 import { useCart } from "@/lib/cart";
@@ -26,6 +26,23 @@ export default function CheckoutPage() {
   const [errors, setErrors] = useState<Partial<typeof form>>({});
   const [submitting, setSubmitting] = useState(false);
   const [mpError, setMpError] = useState<string | null>(null);
+
+  // Auto-fill for logged-in users
+  useEffect(() => {
+    async function getUserData() {
+      const { createClient } = await import("@/lib/supabase-browser");
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setForm(f => ({
+          ...f,
+          email: user.email || "",
+          name: user.user_metadata?.full_name || "",
+        }));
+      }
+    }
+    getUserData();
+  }, []);
 
   const shipping = totalPrice >= 50000 ? 0 : 4990;
   const total = totalPrice + shipping;
