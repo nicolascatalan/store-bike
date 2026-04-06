@@ -151,3 +151,51 @@ values
     '{"Lúmenes":"70lm","Autonomía":"Hasta 12 horas (flash)","Carga":"USB Micro","Impermeabilidad":"IPX7"}'
   )
 on conflict (slug) do nothing;
+
+-- ==========================================
+-- 6. Configurar Storage para Imágenes
+-- ==========================================
+
+-- Crea el bucket público "products" si no existe
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('products', 'products', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- Permitir acceso de lectura a todo el mundo
+CREATE POLICY "Imagenes publicas" ON storage.objects
+FOR SELECT USING (bucket_id = 'products');
+
+-- Permitir subir, modificar y borrar
+CREATE POLICY "Admin sube imagenes" ON storage.objects
+FOR INSERT WITH CHECK (bucket_id = 'products');
+
+CREATE POLICY "Admin borra imagenes" ON storage.objects
+FOR DELETE USING (bucket_id = 'products');
+
+-- ==========================================
+-- 7. Tabla de Reseñas (Reviews)
+-- ==========================================
+
+CREATE TABLE public.reviews (
+  id uuid default uuid_generate_v4() primary key,
+  product_id uuid references public.products(id) on delete cascade not null,
+  author_name text not null,
+  rating integer not null check (rating >= 1 and rating <= 5),
+  comment text not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- Políticas RLS para reseñas
+ALTER TABLE public.reviews ENABLE ROW LEVEL SECURITY;
+
+-- Cualquiera puede leer opiniones
+CREATE POLICY "Cualquiera lee reseñas" ON public.reviews
+FOR SELECT USING (true);
+
+-- Cualquiera puede insertar su opinión
+CREATE POLICY "Cualquiera añade reseña" ON public.reviews
+FOR INSERT WITH CHECK (true);
+
+-- Admin borra
+CREATE POLICY "Admin borra reseñas" ON public.reviews
+FOR DELETE USING (auth.uid() IN (SELECT id FROM admin_users));

@@ -44,3 +44,12 @@ export interface DBOrderItem {
   unit_price: number;
   products?: DBProduct;
 }
+
+export interface DBReview {
+  id: string;
+  product_id: string;
+  author_name: string;
+  rating: number;
+  comment: string;
+  created_at: string;
+}

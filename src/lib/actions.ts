@@ -1,9 +1,28 @@
 "use server";
 
 import { supabase } from "./supabase";
-import type { DBProduct, DBOrder } from "./supabase";
+import type { DBProduct, DBOrder, DBReview } from "./supabase";
 
 // ── Products ────────────────────────────────────
+
+export async function getReviews(productId: string): Promise<DBReview[]> {
+  const { data, error } = await supabase
+    .from("reviews")
+    .select("*")
+    .eq("product_id", productId)
+    .order("created_at", { ascending: false });
+
+  return data ?? [];
+}
+
+export async function submitReview(review: Omit<DBReview, "id" | "created_at">): Promise<boolean> {
+  const { error } = await supabase.from("reviews").insert(review);
+  if (error) {
+    console.error("Error al guardar reseña", error.message);
+    return false;
+  }
+  return true;
+}
 
 export async function getProducts(): Promise<DBProduct[]> {
   const { data, error } = await supabase

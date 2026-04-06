@@ -2,9 +2,9 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Check, ChevronRight, ShoppingCart, Truck, Shield } from "lucide-react";
-import { getProductBySlug, getProducts } from "@/lib/actions";
-import type { DBProduct } from "@/lib/supabase";
+import { ArrowLeft, Check, ChevronRight, ShoppingCart, Truck, Shield, Star, User } from "lucide-react";
+import { getProductBySlug, getProducts, getReviews, submitReview } from "@/lib/actions";
+import type { DBProduct, DBReview } from "@/lib/supabase";
 import { useCart } from "@/lib/cart";
 import ProductCard from "@/components/store/ProductCard";
 
@@ -14,6 +14,123 @@ function formatCLP(price: number) {
     currency: "CLP",
     maximumFractionDigits: 0,
   }).format(price);
+}
+
+// Sub-componente de Reviews
+function ProductReviews({ productId }: { productId: string }) {
+  const [reviews, setReviews] = useState<DBReview[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [form, setForm] = useState({ name: "", rating: 5, comment: "" });
+
+  useEffect(() => {
+    getReviews(productId).then((res) => {
+      setReviews(res);
+      setLoading(false);
+    });
+  }, [productId]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    const ok = await submitReview({
+      product_id: productId,
+      author_name: form.name,
+      rating: form.rating,
+      comment: form.comment
+    });
+    if (ok) {
+      setForm({ name: "", rating: 5, comment: "" });
+      const current = await getReviews(productId);
+      setReviews(current);
+    } else {
+      alert("Error publicando reseña.");
+    }
+    setSubmitting(false);
+  };
+
+  const avgRating = reviews.length > 0 ? (reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1) : "0";
+
+  return (
+    <div style={{ marginTop: "3rem", paddingTop: "2rem", borderTop: "1px solid var(--color-border)" }}>
+      <h3 style={{ fontSize: "1.5rem", marginBottom: "1rem" }}>Reseñas del Producto</h3>
+      
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: "2rem", alignItems: "start" }}>
+        
+        {/* Sumario y Formulario */}
+        <div className="admin-card">
+          <div style={{ textAlign: "center", marginBottom: "1.5rem" }}>
+            <h4 style={{ fontSize: "3rem", margin: 0, color: "var(--color-primary)" }}>{avgRating}</h4>
+            <div style={{ display: "flex", justifyContent: "center", gap: "0.2rem", color: "#fbbf24", marginBottom: "0.5rem" }}>
+              {[1,2,3,4,5].map(i => <Star key={i} size={20} fill={i <= parseFloat(avgRating) ? "currentColor" : "none"} />)}
+            </div>
+            <p style={{ color: "var(--color-text-muted)", fontSize: "0.9rem" }}>basado en {reviews.length} reseñas</p>
+          </div>
+
+          <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+            <p style={{ fontWeight: 600, borderTop: "1px solid var(--color-border)", paddingTop: "1rem" }}>Deja tu opinión</p>
+            <div>
+              <label className="label" style={{ fontSize: "0.8rem" }}>Tu Nombre</label>
+              <input type="text" required className="input" placeholder="Ej. Juan Pérez" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
+            </div>
+            <div>
+              <label className="label" style={{ fontSize: "0.8rem" }}>Calificación (1-5)</label>
+              <select className="input" value={form.rating} onChange={e => setForm({...form, rating: parseInt(e.target.value)})}>
+                <option value={5}>5 - ¡Excelente!</option>
+                <option value={4}>4 - Muy bueno</option>
+                <option value={3}>3 - Promedio</option>
+                <option value={2}>2 - Podría ser mejor</option>
+                <option value={1}>1 - Muy malo</option>
+              </select>
+            </div>
+            <div>
+              <label className="label" style={{ fontSize: "0.8rem" }}>Comentario</label>
+              <textarea required className="input" rows={3} placeholder="¿Qué te pareció este producto?" value={form.comment} onChange={e => setForm({...form, comment: e.target.value})}></textarea>
+            </div>
+            <button type="submit" disabled={submitting} className="btn btn-primary btn-sm">
+              {submitting ? "Enviando..." : "Publicar Reseña"}
+            </button>
+          </form>
+        </div>
+
+        {/* Lista de Reseñas */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+          {loading ? (
+            <p>Cargando reseñas...</p>
+          ) : reviews.length === 0 ? (
+            <div style={{ background: "var(--color-surface-2)", padding: "2rem", borderRadius: "12px", textAlign: "center" }}>
+              <Star size={48} style={{ color: "var(--color-border)", margin: "0 auto", marginBottom: "1rem" }} />
+              <p>No hay reseñas todavía.</p>
+              <p style={{ fontSize: "0.9rem", color: "var(--color-text-muted)" }}>¡Sé el primero en dejar una opinión!</p>
+            </div>
+          ) : (
+            reviews.map(review => (
+              <div key={review.id} style={{ background: "var(--color-surface-2)", borderRadius: "12px", padding: "1.5rem" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.5rem" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontWeight: 600 }}>
+                    <div style={{ background: "var(--color-primary)", color: "white", width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%" }}>
+                      <User size={14} />
+                    </div>
+                    {review.author_name}
+                  </div>
+                  <div style={{ display: "flex", gap: "0.1rem", color: "#fbbf24" }}>
+                    {[1,2,3,4,5].map(i => <Star key={i} size={14} fill={i <= review.rating ? "currentColor" : "none"} />)}
+                  </div>
+                </div>
+                <p style={{ color: "var(--color-text-muted)", fontSize: "0.95rem", lineHeight: 1.5 }}>
+                  "{review.comment}"
+                </p>
+                <p style={{ fontSize: "0.75rem", color: "var(--color-text-subtle)", marginTop: "0.5rem", textAlign: "right" }}>
+                  {new Date(review.created_at).toLocaleDateString("es-CL")}
+                </p>
+              </div>
+            ))
+          )}
+        </div>
+
+      </div>
+    </div>
+  );
 }
 
 // Inner component — only rendered when product is guaranteed defined
@@ -206,6 +323,13 @@ function ProductDetail({ product }: { product: DBProduct }) {
           </div>
         </section>
       )}
+
+      {/* Reviews */}
+      <section className="section" style={{ paddingTop: "1rem" }}>
+        <div className="container">
+          <ProductReviews productId={product.id} />
+        </div>
+      </section>
 
       {/* Back link */}
       <div className="container" style={{ paddingBottom: "3rem" }}>
