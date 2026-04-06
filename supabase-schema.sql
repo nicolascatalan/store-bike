@@ -209,7 +209,7 @@ CREATE TABLE public.coupons (
 
 ALTER TABLE public.coupons ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Cualquiera lee cupones" ON public.coupons FOR SELECT USING (true);
-CREATE POLICY "Admin gestiona cupones" ON public.coupons FOR ALL USING (auth.uid() IN (SELECT id FROM admin_users));
+CREATE POLICY "Admin gestiona cupones" ON public.coupons FOR ALL USING (auth.role() = 'authenticated');
 
 -- Insert default coupon
 INSERT INTO public.coupons (code, discount_pct) VALUES ('BIKE2026', 15) ON CONFLICT DO NOTHING;
