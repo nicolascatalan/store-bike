@@ -91,7 +91,7 @@ export async function getOrders(): Promise<DBOrder[]> {
 
 export async function updateOrderStatus(
   orderId: string,
-  status: DBOrder["status"]
+  status: DBOrder["status"] | "despachado"
 ): Promise<boolean> {
   const { error } = await supabase
     .from("orders")
@@ -101,6 +101,55 @@ export async function updateOrderStatus(
   if (error) {
     console.error("Error updating order status:", error.message);
     return false;
+  }
+  return true;
+}
+
+export async function trackOrder(orderId: string, email: string): Promise<DBOrder | null> {
+  const { data, error } = await supabase
+    .from("orders")
+    .select("*, order_items(*)")
+    .eq("id", orderId)
+    .eq("customer_email", email)
+    .single();
+
+  if (error || !data) return null;
+  return data;
+}
+
+export async function markAsShipped(orderId: string): Promise<boolean> {
+  const ok = await updateOrderStatus(orderId, "despachado");
+  if (!ok) return false;
+
+  // Enviar correo
+  if (process.env.RESEND_API_KEY) {
+    try {
+      const { data: orderData } = await supabase.from("orders").select("*").eq("id", orderId).single();
+      if (orderData && orderData.customer_email) {
+        // fetch dinamico server side sin importar de mas en build
+        const { Resend } = await import("resend");
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        
+        await resend.emails.send({
+          from: "TiendaBici <onboarding@resend.dev>",
+          to: [orderData.customer_email],
+          subject: "¡Tu pedido va en camino! 🚚",
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h1 style="color: #c45200;">¡Buenas noticias, ${orderData.customer_name}!</h1>
+              <p>Tu pedido <strong>#${orderId.substring(0,8)}</strong> ha sido preparado y acaba de ser despachado a tu dirección:</p>
+              <div style="background: #eef2ff; padding: 15px; border-left: 4px solid #4f46e5; margin: 20px 0;">
+                <p>📍 ${orderData.shipping_address}</p>
+              </div>
+              <p>Esperamos que disfrutes tus artículos de ciclismo.</p>
+              <p>¡Gracias por elegir <strong>TiendaBici</strong>!</p>
+            </div>
+          `,
+        });
+      }
+    } catch(e) {
+      console.error("Error envío resend despachado", e);
+    }
   }
   return true;
 }

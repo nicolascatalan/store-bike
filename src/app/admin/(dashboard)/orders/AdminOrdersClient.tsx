@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { Search, Eye, Filter } from "lucide-react";
 import type { DBOrder } from "@/lib/supabase";
-import { updateOrderStatus } from "@/lib/actions";
+import { updateOrderStatus, markAsShipped } from "@/lib/actions";
 import { useRouter } from "next/navigation";
 
 function formatCLP(value: number) {
@@ -24,9 +24,10 @@ function formatDate(iso: string) {
   });
 }
 
-const STATUS_OPTIONS: DBOrder["status"][] = [
+const STATUS_OPTIONS: string[] = [
   "pendiente",
   "pagado",
+  "despachado",
   "enviado",
   "entregado",
   "cancelado",
@@ -47,9 +48,17 @@ export default function AdminOrdersClient({ orders }: { orders: DBOrder[] }) {
     return matchSearch && matchStatus;
   });
 
-  function handleStatusChange(orderId: string, newStatus: DBOrder["status"]) {
+  function handleStatusChange(orderId: string, newStatus: string) {
+    if (newStatus === "despachado") {
+      if (!confirm("Al marcar como despachado se enviará un correo automático. ¿Estás seguro?")) return;
+    }
+
     startTransition(async () => {
-      await updateOrderStatus(orderId, newStatus);
+      if (newStatus === "despachado") {
+        await markAsShipped(orderId);
+      } else {
+        await updateOrderStatus(orderId, newStatus as any);
+      }
       router.refresh();
     });
   }
