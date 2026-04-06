@@ -1,9 +1,10 @@
 "use client";
-import { use, useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Check, ChevronRight, ShoppingCart, Truck, Shield } from "lucide-react";
-import { getProductBySlug, getRelatedProducts, type Product } from "@/lib/products";
+import { getProductBySlug, getProducts } from "@/lib/actions";
+import type { DBProduct } from "@/lib/supabase";
 import { useCart } from "@/lib/cart";
 import ProductCard from "@/components/store/ProductCard";
 
@@ -16,11 +17,18 @@ function formatCLP(price: number) {
 }
 
 // Inner component — only rendered when product is guaranteed defined
-function ProductDetail({ product }: { product: Product }) {
-  const related = getRelatedProducts(product);
+function ProductDetail({ product }: { product: DBProduct }) {
+  const [related, setRelated] = useState<DBProduct[]>([]);
   const { addItem } = useCart();
   const [added, setAdded] = useState(false);
   const [qty, setQty] = useState(1);
+
+  useEffect(() => {
+    getProducts().then((all) => {
+      const rel = all.filter((p) => p.category === product.category && p.id !== product.id).slice(0, 4);
+      setRelated(rel);
+    });
+  }, [product]);
 
   function handleAddToCart() {
     if (product.stock === 0) return;
@@ -31,7 +39,7 @@ function ProductDetail({ product }: { product: Product }) {
         name: product.name,
         brand: product.brand,
         price: product.price,
-        image: product.image,
+        image: product.image || "/images/placeholder-tool.jpg",
       });
     }
     setAdded(true);
@@ -43,6 +51,8 @@ function ProductDetail({ product }: { product: Product }) {
     luces: "Luces",
     protecciones: "Protecciones",
     ropa: "Ropa",
+    repuestos: "Repuestos",
+    accesorios: "Accesorios"
   };
 
   return (
@@ -53,7 +63,7 @@ function ProductDetail({ product }: { product: Product }) {
           <nav className="breadcrumb" aria-label="Breadcrumb">
             <Link href="/">Inicio</Link>
             <ChevronRight size={14} />
-            <Link href={`/?cat=${product.category}`}>{categoryLabel[product.category]}</Link>
+            <Link href={`/?cat=${product.category}`}>{categoryLabel[product.category] || product.category}</Link>
             <ChevronRight size={14} />
             <span>{product.name}</span>
           </nav>
@@ -63,16 +73,12 @@ function ProductDetail({ product }: { product: Product }) {
             {/* Image panel */}
             <div className="product-detail__image-panel">
               <div className="product-detail__image">
-                <div style={{
-                  width: "100%", height: "100%",
-                  background: "linear-gradient(135deg, #1e1e1e 0%, #2a2a2a 50%, #1a1a1a 100%)",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                }}>
-                  <svg width="120" height="120" viewBox="0 0 64 64" fill="none">
-                    <circle cx="32" cy="32" r="24" stroke="#c45200" strokeWidth="1.5" opacity="0.5" />
-                    <circle cx="32" cy="32" r="8" fill="#c45200" opacity="0.4" />
-                    <path d="M32 14V18M32 46V50M14 32H18M46 32H50" stroke="#c45200" strokeWidth="1.5" strokeLinecap="round" opacity="0.5" />
-                  </svg>
+                <div style={{ position: "relative", width: "100%", height: "100%" }}>
+                  <img
+                    src={product.image || "/images/placeholder-tool.jpg"}
+                    alt={product.name}
+                    style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "12px" }}
+                  />
                 </div>
                 {product.stock <= 3 && product.stock > 0 && (
                   <div className="product-card__badge">¡Últimas {product.stock}!</div>
@@ -106,9 +112,9 @@ function ProductDetail({ product }: { product: Product }) {
               </p>
 
               {/* Features */}
-              {product.features && (
+              {product.features && Array.isArray(product.features) && (
                 <ul className="product-detail__features">
-                  {product.features.map((f) => (
+                  {(product.features as string[]).map((f) => (
                     <li key={f}>
                       <Check size={14} style={{ color: "var(--color-primary)", flexShrink: 0, marginTop: 2 }} />
                       <span>{f}</span>
@@ -167,12 +173,12 @@ function ProductDetail({ product }: { product: Product }) {
               </div>
 
               {/* Specs */}
-              {product.specs && (
+              {product.specs && typeof product.specs === "object" && Object.keys(product.specs).length > 0 && (
                 <div className="product-detail__specs">
                   <p style={{ fontWeight: 600, marginBottom: "0.75rem", color: "var(--color-text)" }}>Especificaciones</p>
                   <table className="specs-table">
                     <tbody>
-                      {Object.entries(product.specs).map(([key, val]) => (
+                      {Object.entries(product.specs as Record<string, string>).map(([key, val]) => (
                         <tr key={key}>
                           <td>{key}</td>
                           <td>{val}</td>
@@ -194,7 +200,7 @@ function ProductDetail({ product }: { product: Product }) {
             <h2 style={{ marginBottom: "1.5rem" }}>Productos relacionados</h2>
             <div className="products-grid">
               {related.map((p, i) => (
-                <ProductCard key={p.id} product={p} index={i} />
+                <ProductCard key={p.id} product={p as any} index={i} />
               ))}
             </div>
           </div>
@@ -211,9 +217,26 @@ function ProductDetail({ product }: { product: Product }) {
   );
 }
 
+// Para usar async state hydration gracefully (ya que usamos use client generalizamos esto envolviendo en page.tsx asincrónico por separado no es ideal con SSR local. Para la MVP usaremos useEffect en una capa superior o resolveremos via promise).
 export default function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = use(params);
-  const product = getProductBySlug(slug);
-  if (!product) notFound();
+  const [product, setProduct] = useState<DBProduct | null | undefined>(undefined);
+  const [slug, setSlug] = useState<string | null>(null);
+
+  useEffect(() => {
+    params.then((p) => setSlug(p.slug));
+  }, [params]);
+
+  useEffect(() => {
+    if (slug) {
+      getProductBySlug(slug).then((res) => {
+        if (!res) return setProduct(null);
+        setProduct(res);
+      });
+    }
+  }, [slug]);
+
+  if (product === undefined) return <div className="container" style={{ padding: "4rem" }}>Cargando...</div>;
+  if (product === null) notFound();
+
   return <ProductDetail product={product} />;
 }
