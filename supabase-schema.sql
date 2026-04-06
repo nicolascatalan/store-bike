@@ -196,6 +196,20 @@ FOR SELECT USING (true);
 CREATE POLICY "Cualquiera añade reseña" ON public.reviews
 FOR INSERT WITH CHECK (true);
 
--- Admin borra
-CREATE POLICY "Admin borra reseñas" ON public.reviews
-FOR DELETE USING (auth.uid() IN (SELECT id FROM admin_users));
+-- ==========================================
+-- 8. Tabla de Cupones de Descuento
+-- ==========================================
+
+CREATE TABLE public.coupons (
+  id uuid default uuid_generate_v4() primary key,
+  code text not null unique,
+  discount_pct integer not null check (discount_pct > 0 and discount_pct <= 100),
+  active boolean default true
+);
+
+ALTER TABLE public.coupons ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Cualquiera lee cupones" ON public.coupons FOR SELECT USING (true);
+CREATE POLICY "Admin gestiona cupones" ON public.coupons FOR ALL USING (auth.uid() IN (SELECT id FROM admin_users));
+
+-- Insert default coupon
+INSERT INTO public.coupons (code, discount_pct) VALUES ('BIKE2026', 15) ON CONFLICT DO NOTHING;

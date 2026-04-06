@@ -1,8 +1,9 @@
 "use client";
+import { useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, ShoppingCart, Trash2, Plus, Minus, ArrowRight } from "lucide-react";
 import { useCart } from "@/lib/cart";
-import type { Metadata } from "next";
+import { validateCoupon } from "@/lib/actions";
 
 function formatCLP(price: number) {
   return new Intl.NumberFormat("es-CL", {
@@ -14,6 +15,27 @@ function formatCLP(price: number) {
 
 export default function CartPage() {
   const { items, totalItems, totalPrice, removeItem, updateQty, clearCart } = useCart();
+  const [couponCode, setCouponCode] = useState("");
+  const [discountPct, setDiscountPct] = useState(0);
+  const [validatingContext, setValidatingContext] = useState(false);
+
+  const handleApplyCoupon = async () => {
+    if (!couponCode) return;
+    setValidatingContext(true);
+    const pct = await validateCoupon(couponCode);
+    if (pct > 0) {
+      setDiscountPct(pct);
+    } else {
+      alert("Cupón inválido o expirado");
+      setDiscountPct(0);
+    }
+    setValidatingContext(false);
+  };
+
+  const discountValue = (totalPrice * discountPct) / 100;
+  const priceAfterDiscount = totalPrice - discountValue;
+  const shipping = priceAfterDiscount >= 50000 ? 0 : 4990;
+  const total = priceAfterDiscount + shipping;
 
   if (items.length === 0) {
     return (
@@ -33,9 +55,6 @@ export default function CartPage() {
       </div>
     );
   }
-
-  const shipping = totalPrice >= 50000 ? 0 : 4990;
-  const total = totalPrice + shipping;
 
   return (
     <div className="section">
@@ -123,6 +142,34 @@ export default function CartPage() {
               <span>Subtotal</span>
               <span>{formatCLP(totalPrice)}</span>
             </div>
+
+            {/* Sistema de Cupones */}
+            <div style={{ margin: "1rem 0", display: "flex", gap: "0.5rem" }}>
+              <input 
+                type="text" 
+                className="input input-sm" 
+                placeholder="Código de dcto" 
+                value={couponCode}
+                onChange={(e) => setCouponCode(e.target.value)}
+                disabled={discountPct > 0}
+              />
+              <button 
+                className="btn btn-sm btn-ghost" 
+                style={{ border: "1px solid var(--color-border)" }}
+                onClick={handleApplyCoupon}
+                disabled={discountPct > 0 || validatingContext}
+              >
+                {validatingContext ? "Verificando..." : discountPct > 0 ? "Aplicado" : "Aplicar"}
+              </button>
+            </div>
+
+            {discountPct > 0 && (
+              <div className="cart__summary-row" style={{ color: "var(--color-primary)", fontWeight: 600 }}>
+                <span>Descuento ({discountPct}%)</span>
+                <span>-{formatCLP(discountValue)}</span>
+              </div>
+            )}
+
             <div className="cart__summary-row">
               <span>Envío</span>
               <span style={{ color: shipping === 0 ? "var(--color-success)" : "inherit" }}>
@@ -143,7 +190,7 @@ export default function CartPage() {
             </div>
 
             <Link
-              href="/checkout"
+              href={`/checkout${discountPct > 0 ? `?discount=${discountPct}&code=${couponCode}` : ""}`}
               id="go-to-checkout"
               className="btn btn-primary btn-lg btn-full"
               style={{ marginTop: "1.5rem" }}

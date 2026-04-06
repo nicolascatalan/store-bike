@@ -201,3 +201,17 @@ export async function getDashboardStats() {
 
   return { totalStock, lowStock, outOfStock, monthlySales, totalOrders };
 }
+
+// ── Coupons ──────────────────────────────────────
+
+export async function validateCoupon(code: string): Promise<number> {
+  const { data, error } = await supabase
+    .from("coupons")
+    .select("discount_pct")
+    .eq("code", code.toUpperCase())
+    .eq("active", true)
+    .single();
+
+  if (error || !data) return 0;
+  return data.discount_pct;
+}

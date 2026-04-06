@@ -1,8 +1,9 @@
 "use client";
 import Link from "next/link";
-import { ShoppingCart, Check } from "lucide-react";
+import { ShoppingCart, Check, Heart } from "lucide-react";
 import { useState } from "react";
 import { useCart } from "@/lib/cart";
+import { useWishlist } from "@/lib/wishlist";
 import type { Product } from "@/lib/products";
 
 function formatCLP(price: number) {
@@ -21,7 +22,10 @@ function StockLabel({ stock }: { stock: number }) {
 
 export default function ProductCard({ product, index }: { product: Product; index: number }) {
   const { addItem } = useCart();
+  const { items: wishlistIds, toggleItem: toggleWishlist } = useWishlist();
   const [added, setAdded] = useState(false);
+
+  const isWished = wishlistIds.includes(product.id);
 
   function handleAddToCart(e: React.MouseEvent) {
     e.preventDefault();
@@ -39,6 +43,12 @@ export default function ProductCard({ product, index }: { product: Product; inde
     setTimeout(() => setAdded(false), 1500);
   }
 
+  function handleWishlist(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    toggleWishlist(product.id);
+  }
+
   return (
     <Link
       href={`/products/${product.slug}`}
@@ -50,11 +60,37 @@ export default function ProductCard({ product, index }: { product: Product; inde
       <div className="product-card__image">
         <div style={{ position: "relative", width: "100%", height: "100%" }}>
           <img
-            src={product.image}
+            src={product.image || "/images/placeholder-tool.jpg"}
             alt={product.name}
             style={{ width: "100%", height: "100%", objectFit: "cover" }}
           />
         </div>
+        
+        {/* Wishlist Button */}
+        <button
+          onClick={handleWishlist}
+          style={{
+            position: "absolute",
+            top: "10px",
+            right: "10px",
+            background: "var(--color-surface)",
+            border: "none",
+            borderRadius: "50%",
+            width: "36px",
+            height: "36px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+            zIndex: 2,
+            transition: "all 0.2s"
+          }}
+          aria-label={isWished ? "Quitar de favoritos" : "Añadir a favoritos"}
+        >
+          <Heart size={18} fill={isWished ? "#ef4444" : "none"} color={isWished ? "#ef4444" : "var(--color-text)"} />
+        </button>
+
         {product.stock === 0 && (
           <div className="product-card__badge" style={{ background: "#555" }}>Agotado</div>
         )}

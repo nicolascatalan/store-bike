@@ -3,6 +3,7 @@ import "./globals.css";
 import Navbar from "@/components/ui/Navbar";
 import Footer from "@/components/ui/Footer";
 import { CartProvider } from "@/lib/cart";
+import { WishlistProvider } from "@/lib/wishlist";
 
 export const metadata: Metadata = {
   title: {
@@ -23,9 +24,11 @@ export default function RootLayout({
     <html lang="es">
       <body>
         <CartProvider>
-          <Navbar />
-          <main>{children}</main>
-          <Footer />
+          <WishlistProvider>
+            <Navbar />
+            <main>{children}</main>
+            <Footer />
+          </WishlistProvider>
         </CartProvider>
       </body>
     </html>

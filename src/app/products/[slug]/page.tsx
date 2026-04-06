@@ -1,4 +1,4 @@
-"use client";
+import { Metadata, ResolvingMetadata } from "next";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -7,6 +7,36 @@ import { getProductBySlug, getProducts, getReviews, submitReview } from "@/lib/a
 import type { DBProduct, DBReview } from "@/lib/supabase";
 import { useCart } from "@/lib/cart";
 import ProductCard from "@/components/store/ProductCard";
+
+export async function generateMetadata(
+  { params }: { params: Promise<{ slug: string }> },
+  parent: ResolvingMetadata
+): Promise<Metadata> {
+  const p = await params;
+  const product = await getProductBySlug(p.slug);
+  
+  if (!product) return { title: "Producto no encontrado" };
+
+  return {
+    title: `${product.name} | TiendaBici`,
+    description: product.description.substring(0, 160),
+    openGraph: {
+      title: `${product.name} - $${product.price.toLocaleString("es-CL")} CLP`,
+      description: product.description.substring(0, 160),
+      images: [
+        {
+          url: product.image?.startsWith("http") 
+            ? product.image 
+            : `http://localhost:3000${product.image || "/images/placeholder-tool.jpg"}`,
+          width: 800,
+          height: 600,
+          alt: product.name,
+        },
+      ],
+    },
+  };
+}
+// Removed duplicate imports
 
 function formatCLP(price: number) {
   return new Intl.NumberFormat("es-CL", {
@@ -64,33 +94,14 @@ function ProductReviews({ productId }: { productId: string }) {
             <div style={{ display: "flex", justifyContent: "center", gap: "0.2rem", color: "#fbbf24", marginBottom: "0.5rem" }}>
               {[1,2,3,4,5].map(i => <Star key={i} size={20} fill={i <= parseFloat(avgRating) ? "currentColor" : "none"} />)}
             </div>
-            <p style={{ color: "var(--color-text-muted)", fontSize: "0.9rem" }}>basado en {reviews.length} reseñas</p>
+            <p style={{ color: "var(--color-text-muted)", fontSize: "0.9rem" }}>basado en {reviews.length} reseñas verificadas</p>
           </div>
-
-          <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-            <p style={{ fontWeight: 600, borderTop: "1px solid var(--color-border)", paddingTop: "1rem" }}>Deja tu opinión</p>
-            <div>
-              <label className="label" style={{ fontSize: "0.8rem" }}>Tu Nombre</label>
-              <input type="text" required className="input" placeholder="Ej. Juan Pérez" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
-            </div>
-            <div>
-              <label className="label" style={{ fontSize: "0.8rem" }}>Calificación (1-5)</label>
-              <select className="input" value={form.rating} onChange={e => setForm({...form, rating: parseInt(e.target.value)})}>
-                <option value={5}>5 - ¡Excelente!</option>
-                <option value={4}>4 - Muy bueno</option>
-                <option value={3}>3 - Promedio</option>
-                <option value={2}>2 - Podría ser mejor</option>
-                <option value={1}>1 - Muy malo</option>
-              </select>
-            </div>
-            <div>
-              <label className="label" style={{ fontSize: "0.8rem" }}>Comentario</label>
-              <textarea required className="input" rows={3} placeholder="¿Qué te pareció este producto?" value={form.comment} onChange={e => setForm({...form, comment: e.target.value})}></textarea>
-            </div>
-            <button type="submit" disabled={submitting} className="btn btn-primary btn-sm">
-              {submitting ? "Enviando..." : "Publicar Reseña"}
-            </button>
-          </form>
+          
+          <div style={{ textAlign: "center", padding: "1rem", background: "var(--color-surface)", border: "1px dashed var(--color-border)", borderRadius: "8px" }}>
+            <p style={{ fontSize: "0.9rem", color: "var(--color-text-muted)" }}>
+              Solo los clientes que han comprado este producto reciben un link por correo para dejar su reseña.
+            </p>
+          </div>
         </div>
 
         {/* Lista de Reseñas */}
