@@ -10,8 +10,8 @@ export default function NewProductPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [previews, setPreviews] = useState<string[]>([]);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -36,39 +36,50 @@ export default function NewProductPage() {
     setFormData({ ...formData, name: e.target.value, slug: generateSlug(e.target.value) });
   };
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setImageFile(file);
-      setImagePreview(URL.createObjectURL(file));
+  const handleImagesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const files = Array.from(e.target.files);
+      setImageFiles(prev => [...prev, ...files]);
+      const newPreviews = files.map(f => URL.createObjectURL(f));
+      setPreviews(prev => [...prev, ...newPreviews]);
     }
+  };
+
+  const removeImage = (index: number) => {
+    setImageFiles(prev => prev.filter((_, i) => i !== index));
+    setPreviews(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!imageFile) {
-      alert("Por favor selecciona una imagen para el producto.");
+    if (imageFiles.length === 0) {
+      alert("Por favor selecciona al menos una imagen para el producto.");
       return;
     }
 
     setLoading(true);
 
     try {
-      // 1. Subir la imagen al servidor proxy que carga al Storage
+      // 1. Subir todas las imágenes
       setUploadingImage(true);
-      const fileData = new FormData();
-      fileData.append("file", imageFile);
+      const uploadedUrls: string[] = [];
 
-      const uploadRes = await fetch("/api/upload", {
-        method: "POST",
-        body: fileData,
-      });
+      for (const file of imageFiles) {
+        const fileData = new FormData();
+        fileData.append("file", file);
 
-      if (!uploadRes.ok) throw new Error("Error subiendo imagen");
-      const { url } = await uploadRes.json();
+        const uploadRes = await fetch("/api/upload", {
+          method: "POST",
+          body: fileData,
+        });
+
+        if (!uploadRes.ok) throw new Error("Error subiendo una de las imágenes");
+        const { url } = await uploadRes.json();
+        uploadedUrls.push(url);
+      }
       setUploadingImage(false);
 
-      // 2. Crear el registro en base de datos con la URL publica
+      // 2. Crear el registro en base de datos
       const product = {
         name: formData.name,
         slug: formData.slug || generateSlug(formData.name),
@@ -76,22 +87,23 @@ export default function NewProductPage() {
         price: parseInt(formData.price || "0"),
         category: formData.category,
         stock: parseInt(formData.stock || "0"),
-        image: url, // La URL de Supabase Storage
+        image: uploadedUrls[0], // Principal
+        images: uploadedUrls,    // Galería
         description: formData.description,
         features: [],
         specs: {},
       };
 
-      const res = await createProduct(product);
+      const res = await createProduct(product as any);
       if (res) {
         router.push("/admin/products");
         router.refresh();
       } else {
-        alert("Error al crear. Asegúrate que el campo slug no esté repetido con otro producto.");
+        alert("Error al crear. Asegúrate que el campo slug no esté repetido.");
       }
     } catch (error) {
       console.error(error);
-      alert("Ocurrió un error general subiendo el producto.");
+      alert("Ocurrió un error subiendo el producto.");
     } finally {
       setLoading(false);
       setUploadingImage(false);
@@ -156,45 +168,76 @@ export default function NewProductPage() {
         </form>
 
         {/* Panel Derecho de Imagen */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-          <label className="label">Fotografía del Producto</label>
-          <label 
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              border: "2px dashed var(--color-border)",
-              borderRadius: "12px",
-              padding: "2rem",
-              background: "var(--color-surface-2)",
-              cursor: "pointer",
-              height: "250px",
-              textAlign: "center",
-              overflow: "hidden",
-              position: "relative"
-            }}>
-            <input type="file" required accept="image/*" style={{ display: "none" }} onChange={handleImageChange} />
-            
-            {imagePreview ? (
-              <img src={imagePreview} alt="Preview" style={{ width: "100%", height: "100%", objectFit: "contain", position: "absolute", top: 0, left: 0 }} />
-            ) : (
-              <>
-                <UploadCloud size={48} style={{ color: "var(--color-primary)", marginBottom: "1rem" }} />
-                <span style={{ fontWeight: 500 }}>Haz clic para subir imagen</span>
-                <span style={{ fontSize: "0.8rem", color: "var(--color-text-muted)", marginTop: "0.5rem" }}>PNG, JPG o WEBP (Máx. 2MB)</span>
-              </>
-            )}
-          </label>
+        <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+          <div>
+            <label className="label" style={{ marginBottom: "0.5rem", display: "block" }}>Fotografías del Producto</label>
+            <label 
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                border: "2px dashed var(--color-border)",
+                borderRadius: "12px",
+                padding: "1.5rem",
+                background: "var(--color-surface-2)",
+                cursor: "pointer",
+                textAlign: "center",
+                transition: "all 0.2s"
+              }}>
+              <input type="file" multiple accept="image/*" style={{ display: "none" }} onChange={handleImagesChange} />
+              <UploadCloud size={32} style={{ color: "var(--color-primary)", marginBottom: "0.5rem" }} />
+              <span style={{ fontWeight: 500, fontSize: "0.9rem" }}>Añadir imágenes</span>
+              <span style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", marginTop: "0.25rem" }}>Puedes seleccionar varias</span>
+            </label>
+          </div>
+
+          {/* Previews Grid */}
+          <div style={{ 
+            display: "grid", 
+            gridTemplateColumns: "repeat(auto-fill, minmax(80px, 1fr))", 
+            gap: "0.75rem",
+            maxHeight: "300px",
+            overflowY: "auto",
+            padding: "0.5rem"
+          }}>
+            {previews.map((src, i) => (
+              <div key={i} style={{ position: "relative", aspectRatio: "1", borderRadius: "8px", overflow: "hidden", border: "1px solid var(--color-border)" }}>
+                <img src={src} alt="Preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                <button 
+                  type="button" 
+                  onClick={() => removeImage(i)}
+                  style={{
+                    position: "absolute",
+                    top: "4px",
+                    right: "4px",
+                    background: "rgba(0,0,0,0.6)",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "50%",
+                    width: "20px",
+                    height: "20px",
+                    fontSize: "12px",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center"
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
 
           <button 
             type="submit" 
             form="product-form"
             className="btn btn-primary btn-lg" 
             disabled={loading} 
-            style={{ marginTop: "auto" }}>
+            style={{ marginTop: "auto", width: "100%" }}>
             <Save size={18} /> 
-            {uploadingImage ? "Subiendo foto..." : loading ? "Guardando..." : "Publicar Producto"}
+            {uploadingImage ? "Subiendo fotos..." : loading ? "Guardando..." : "Publicar Producto"}
           </button>
         </div>
       </div>
