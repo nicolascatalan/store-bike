@@ -5,6 +5,7 @@ import { Plus, Edit, Trash2, Search, X, Check } from "lucide-react";
 import type { DBProduct } from "@/lib/supabase";
 import { deleteProduct, updateStock } from "@/lib/actions";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 function formatCLP(price: number) {
   return new Intl.NumberFormat("es-CL", {
@@ -48,12 +49,13 @@ export default function AdminProductsClient({ products }: { products: DBProduct[
           <h1>Productos</h1>
           <p>Gestiona el catálogo de tu tienda. ({products.length} productos)</p>
         </div>
-        <button
+        <Link
+          href="/admin/products/new"
           className="btn btn-primary"
           style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
         >
           <Plus size={18} /> Nuevo Producto
-        </button>
+        </Link>
       </div>
 
       <div className="admin-card">
